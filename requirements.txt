@@ -1,0 +1,4 @@
+requests
+beautifulsoup4
+groq==0.11.0
+python-telegram-bot==13.15
