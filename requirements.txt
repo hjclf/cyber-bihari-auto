@@ -1,5 +1,6 @@
-requests==2.31.0
+requests==2.32.3
 beautifulsoup4==4.12.3
 groq==0.11.0
-python-telegram-bot==13.15
+python-telegram-bot==20.8  # नया वर्जन यूज करो (v13 पुराना है और ब्रेक हो रहा है)
 httpx==0.27.2
+urllib3==1.26.18
