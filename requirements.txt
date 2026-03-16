@@ -1,7 +1,5 @@
-requests==2.32.3
-beautifulsoup4==4.12.3
-groq==0.11.0
-python-telegram-bot==20.7  # 20.8 की जगह 20.7 — httpx 0.27.2 के साथ मैच करता है
-httpx==0.27.2
-urllib3==1.26.18
-certifi==2024.8.30
+requests
+groq
+python-telegram-bot
+beautifulsoup4
+flask
