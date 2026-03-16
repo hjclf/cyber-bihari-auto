@@ -13,7 +13,7 @@ CHANNEL_ID = -1003718617214
 GROQ_API_KEY = "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"
 WHATSAPP_LINK = "https://whatsapp.com/channel/0029VbCKP717T8bdCgnaPQ0S"
 
-SEEN_FILE = "seen_pdfs.json"
+SEEN_FILE = "seen_urls.json"  # URL बेस्ड, पुराने स्किप करने के लिए
 
 client = Groq(api_key=GROQ_API_KEY)
 bot = Bot(token=TELEGRAM_TOKEN)
@@ -22,16 +22,16 @@ def load_seen():
     if os.path.exists(SEEN_FILE):
         try:
             with open(SEEN_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                return set(json.load(f))
         except:
-            return {}
-    return {}
+            return set()
+    return set()
 
-seen = load_seen()
+seen_urls = load_seen()
 
 def save_seen():
     with open(SEEN_FILE, 'w', encoding='utf-8') as f:
-        json.dump(seen, f, ensure_ascii=False, indent=2)
+        json.dump(list(seen_urls), f, ensure_ascii=False, indent=2)
 
 def get_ai_summary(title):
     prompt = f"""यह Purnea University या उसके कॉलेज का नोटिस है। हिंदी में 2-3 लाइन में बताओ कि ये PDF क्या सूचना देता है (students के लिए clear और urgent)। Title: {title}"""
@@ -47,14 +47,13 @@ def get_ai_summary(title):
         return "नई महत्वपूर्ण सूचना जारी। PDF में पूरा डिटेल पढ़ें।"
 
 def post_pdf(pdf_url, title, source):
-    post_hash = str(hash(pdf_url))
-    if post_hash in seen:
-        print(f"[Duplicate / पुराना] {title} from {source} - skip")
+    if pdf_url in seen_urls:
+        print(f"[पुराना / Duplicate] {title} from {source} - skip")
         return
 
     summary = get_ai_summary(title)
 
-    caption = f"""🔔 **नई आधिकारिक सूचना** (मार्च 2026 के बाद की)
+    caption = f"""🔔 **नई आधिकारिक सूचना**
 
 📌 **{source}**
 
@@ -74,7 +73,7 @@ def post_pdf(pdf_url, title, source):
             caption=caption,
             parse_mode='Markdown'
         )
-        seen[post_hash] = datetime.now().isoformat()
+        seen_urls.add(pdf_url)
         save_seen()
         print(f"[SUCCESS - नया नोटिस] पोस्ट किया: {title} | {source}")
     except Exception as e:
@@ -82,7 +81,7 @@ def post_pdf(pdf_url, title, source):
 
 def scrape_site(url, name):
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        headers = {'User-Agent': 'Mozilla/5.0'}
         r = requests.get(url, timeout=20, headers=headers)
         soup = BeautifulSoup(r.text, 'html.parser')
         count = 0
@@ -92,8 +91,7 @@ def scrape_site(url, name):
                 title = a.text.strip() or f"{name} - नई नोटिस"
                 full_url = href if href.startswith('http') else url.rstrip('/') + '/' + href.lstrip('/')
                 
-                post_hash = str(hash(full_url))
-                if post_hash in seen:
+                if full_url in seen_urls:
                     print(f"[पुराना PDF skip] {title} from {name}")
                     continue
                 
@@ -108,30 +106,30 @@ def scrape_site(url, name):
     except Exception as e:
         print(f"[{name}] स्क्रेप एरर: {e}")
 
-# सभी साइट्स की लिस्ट (Purnea University + जितने कॉलेजेस की वेबसाइट मिलीं)
+# सभी साइट्स की लिस्ट (Purnea University + Constituent + Affiliated + B.Ed - जितनी एक्टिव मिलीं)
 sources = [
-    # Purnea University मुख्य (सभी कॉलेजेस पर लागू नोटिस यहीं से आते हैं)
+    # Purnea University मुख्य (सभी कॉलेजेस के नोटिस यहीं से आते हैं)
     ("https://purneau.ac.in/", "Purnea University मुख्य"),
     ("https://purneau.ac.in/pages/news", "Purnea University Notices"),
     ("https://purneau.ac.in/news/examination", "Purnea University Exams & Results"),
-    
-    # Constituent Colleges
-    ("https://purneacollege.ac.in/", "Purnea College"),
-    ("https://www.purneamahilacollege.ac.in/", "Purnea Mahila College"),
-    ("https://www.mlaryacollegekasba.ac.in/", "M.L. Arya College Kasba"),
-    
-    # Affiliated Colleges (एक्टिव वेबसाइट्स वाली)
-    ("https://snsydegreecollegelib.org/", "S.N.S.Y. Degree College Rambagh"),
-    ("http://www.ndcpurnea.org/", "N.D. College Rambagh"),
-    ("https://bnccollegedhamdaha.in/", "B.N.C. College Dhamdaha"),
+
+    # Constituent Colleges (ऑफिशियल 15 में से एक्टिव)
+    ("https://purneacollege.ac.in/", "Purnea College, Purnea"),
+    ("https://www.purneamahilacollege.ac.in/", "Purnea Mahila Mahavidyalaya, Purnea"),
+    ("https://www.mlaryacollegekasba.ac.in/", "M.L. Arya College Kasba, Purnea"),
+
+    # Affiliated Colleges (एक्टिव वेबसाइट्स वाली - ऑफिशियल लिस्ट से)
+    ("https://snsydegreecollegelib.org/", "S.N.S.Y. Degree College Rambagh, Purnia"),
+    ("http://www.ndcpurnea.org/", "N.D. College Rambagh, Purnia"),
+    ("https://bnccollegedhamdaha.in/", "B.N.C. College Dhamdaha, Purnia"),
     ("https://www.dscollegekatihar.in/", "D.S. College Katihar"),
-    ("https://forbesganjcollege.ac.in/", "Forbesganj College"),
+    ("https://forbesganjcollege.ac.in/", "Forbesganj College, Araria"),
     ("https://www.glmcollege.ac.in/", "G.L.M. College Banmankhi"),
-    ("https://www.bmtlawcollege.org/", "B.M.T. Law College"),
-    ("http://www.mfaabed.org.in/", "M.F.A.A. B.Ed College"),
-    ("http://swadeshipurnia.in/", "Swadeshi B.Ed College"),
+    ("https://www.bmtlawcollege.org/", "B.M.T. Law College, Purnia"),
+    ("http://www.mfaabed.org.in/", "M.F.A.A. B.Ed College, Purnia"),
+    ("http://swadeshipurnia.in/", "Swadeshi B.Ed College, Purnia"),
     ("https://srpttcollegepurnea.com/", "SRP T.T. College Purnea"),
-    ("https://psdcollegeharda.in/", "P.S.D College Harda"),
+    ("https://psdcollegeharda.in/", "P.S.D College Harda, Purnia"),
     ("https://srcdcollege.in/", "S.R.C. Degree College Katihar"),
     ("http://www.rymaniharicollege.com/", "R.Y. Manihari College"),
     ("https://bmcollegebarari.ac.in/", "B.M. College Barari"),
@@ -140,9 +138,9 @@ sources = [
 ]
 
 print("Bot शुरू हो गया...")
-print("पहली बार कुछ भी पोस्ट नहीं होगा (पुराने नोटिस स्किप हो जाएंगे)")
-print("उसके बाद से सिर्फ नए नोटिस ही आएंगे (मार्च 2026 के बाद वाले)")
-print("हर 30 मिनट में चेक करेगा\n")
+print("पहली बार: पुराने सारे PDF सिर्फ seen में सेव होंगे, कुछ पोस्ट नहीं होगा")
+print("उसके बाद से: सिर्फ नए PDF (मार्च 2026 के बाद या फ्यूचर में आने वाले) ही आएंगे")
+print("हर 30 मिनट में ऑटो चेक होगा - लाइव अपडेट\n")
 
 while True:
     current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
