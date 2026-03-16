@@ -8,14 +8,14 @@ from datetime import datetime
 import os
 import sys
 
-# Environment variables से लोड करो (Render पर सेट कर लेना)
+# CONFIG - Render पर Environment Variables से आएगा
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "-1003718617214"))
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 WHATSAPP_LINK = "https://whatsapp.com/channel/0029VbCKP717T8bdCgnaPQ0S"
 
-if not TELEGRAM_TOKEN or not GROQ_API_KEY:
-    print("Error: TELEGRAM_TOKEN या GROQ_API_KEY नहीं मिला!")
+if not all([TELEGRAM_TOKEN, GROQ_API_KEY]):
+    print("Error: TELEGRAM_TOKEN या GROQ_API_KEY Environment में नहीं है!")
     sys.exit(1)
 
 client = Groq(api_key=GROQ_API_KEY)
@@ -28,8 +28,7 @@ def load_seen():
         try:
             with open(SEEN_FILE, 'r', encoding='utf-8') as f:
                 return set(json.load(f))
-        except Exception as e:
-            print(f"Seen file लोड एरर: {e}")
+        except:
             return set()
     return set()
 
@@ -119,28 +118,24 @@ def scrape_site(url, name):
 
 # पूर्णिया यूनिवर्सिटी + सभी कॉलेजेस (Constituent + Affiliated - जितनी एक्टिव साइट मिलीं)
 sources = [
-    # Purnea University मुख्य (सभी कॉलेजेस के नोटिस यहीं से आते हैं)
-    ("https://purneau.ac.in/", "Purnea University मुख्य"),
-    ("https://purneau.ac.in/pages/news", "Purnea University Notices"),
-    ("https://purneau.ac.in/news/examination", "Purnea University Exams & Results"),
+    ("https://purneau.ac.in/", "Purnea University मुख्य - सभी कॉलेजेस कवर"),
+    ("https://purneau.ac.in/pages/news", "Purnea University - Notices"),
+    ("https://purneau.ac.in/news/examination", "Purnea University - Exams & Results"),
 
-    # Constituent Colleges (15 में से एक्टिव साइट्स)
-    ("https://purneacollege.ac.in/", "Purnea College, Purnea"),
-    ("https://www.purneamahilacollege.ac.in/", "Purnea Mahila Mahavidyalaya, Purnea"),
-    ("https://www.mlaryacollegekasba.ac.in/", "M.L. Arya College Kasba, Purnea"),
-
-    # Affiliated Colleges (एक्टिव वेबसाइट्स वाली - ऑफिशियल लिस्ट से)
-    ("https://snsydegreecollegelib.org/", "S.N.S.Y. Degree College Rambagh, Purnia"),
-    ("http://www.ndcpurnea.org/", "N.D. College Rambagh, Purnia"),
-    ("https://bnccollegedhamdaha.in/", "B.N.C. College Dhamdaha, Purnia"),
+    ("https://purneacollege.ac.in/", "Purnea College"),
+    ("https://www.purneamahilacollege.ac.in/", "Purnea Mahila College"),
+    ("https://www.mlaryacollegekasba.ac.in/", "M.L. Arya College Kasba"),
+    ("http://www.ndcpurnea.org/", "N.D. College Rambagh"),
+    ("https://snsydegreecollegelib.org/", "S.N.S.Y. Degree College Rambagh"),
+    ("https://bnccollegedhamdaha.in/", "B.N.C. College Dhamdaha"),
     ("https://www.dscollegekatihar.in/", "D.S. College Katihar"),
-    ("https://forbesganjcollege.ac.in/", "Forbesganj College, Araria"),
+    ("https://forbesganjcollege.ac.in/", "Forbesganj College"),
     ("https://www.glmcollege.ac.in/", "G.L.M. College Banmankhi"),
-    ("https://www.bmtlawcollege.org/", "B.M.T. Law College, Purnia"),
-    ("http://www.mfaabed.org.in/", "M.F.A.A. B.Ed College, Purnia"),
-    ("http://swadeshipurnia.in/", "Swadeshi B.Ed College, Purnia"),
+    ("https://www.bmtlawcollege.org/", "B.M.T. Law College"),
+    ("http://www.mfaabed.org.in/", "M.F.A.A. B.Ed College"),
+    ("http://swadeshipurnia.in/", "Swadeshi B.Ed College"),
     ("https://srpttcollegepurnea.com/", "SRP T.T. College Purnea"),
-    ("https://psdcollegeharda.in/", "P.S.D College Harda, Purnia"),
+    ("https://psdcollegeharda.in/", "P.S.D College Harda"),
     ("https://srcdcollege.in/", "S.R.C. Degree College Katihar"),
     ("http://www.rymaniharicollege.com/", "R.Y. Manihari College"),
     ("https://bmcollegebarari.ac.in/", "B.M. College Barari"),
@@ -164,6 +159,6 @@ while True:
         print("=== चेक पूरा === अगला चेक 30 मिनट बाद\n")
     except Exception as e:
         print(f"Main loop में एरर: {e}")
-        time.sleep(60)  # एरर पर 1 मिनट वेट
+        time.sleep(60)
     
     time.sleep(1800)
