@@ -6,32 +6,41 @@ import time
 import json
 from datetime import datetime
 import os
+import sys
 
-# CONFIG
-TELEGRAM_TOKEN = "8617544467:AAGMuVN7VWZZF9GFQ-DLExPue8NgdzK6Nvw"
-CHANNEL_ID = -1003718617214
-GROQ_API_KEY = "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"
+# Environment variables से लोड करो (Render पर सेट कर लेना)
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "-1003718617214"))
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 WHATSAPP_LINK = "https://whatsapp.com/channel/0029VbCKP717T8bdCgnaPQ0S"
 
-SEEN_FILE = "seen_urls.json"  # URL बेस्ड, पुराने स्किप करने के लिए
+if not TELEGRAM_TOKEN or not GROQ_API_KEY:
+    print("Error: TELEGRAM_TOKEN या GROQ_API_KEY नहीं मिला!")
+    sys.exit(1)
 
 client = Groq(api_key=GROQ_API_KEY)
 bot = Bot(token=TELEGRAM_TOKEN)
+
+SEEN_FILE = "seen_urls.json"
 
 def load_seen():
     if os.path.exists(SEEN_FILE):
         try:
             with open(SEEN_FILE, 'r', encoding='utf-8') as f:
                 return set(json.load(f))
-        except:
+        except Exception as e:
+            print(f"Seen file लोड एरर: {e}")
             return set()
     return set()
 
 seen_urls = load_seen()
 
 def save_seen():
-    with open(SEEN_FILE, 'w', encoding='utf-8') as f:
-        json.dump(list(seen_urls), f, ensure_ascii=False, indent=2)
+    try:
+        with open(SEEN_FILE, 'w', encoding='utf-8') as f:
+            json.dump(list(seen_urls), f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Seen file सेव एरर: {e}")
 
 def get_ai_summary(title):
     prompt = f"""यह Purnea University या उसके कॉलेज का नोटिस है। हिंदी में 2-3 लाइन में बताओ कि ये PDF क्या सूचना देता है (students के लिए clear और urgent)। Title: {title}"""
@@ -43,7 +52,8 @@ def get_ai_summary(title):
             max_tokens=120
         )
         return chat.choices[0].message.content.strip()
-    except:
+    except Exception as e:
+        print(f"AI summary एरर: {e}")
         return "नई महत्वपूर्ण सूचना जारी। PDF में पूरा डिटेल पढ़ें।"
 
 def post_pdf(pdf_url, title, source):
@@ -71,7 +81,8 @@ def post_pdf(pdf_url, title, source):
             chat_id=CHANNEL_ID,
             document=pdf_url,
             caption=caption,
-            parse_mode='Markdown'
+            parse_mode='Markdown',
+            disable_notification=False
         )
         seen_urls.add(pdf_url)
         save_seen()
@@ -81,7 +92,7 @@ def post_pdf(pdf_url, title, source):
 
 def scrape_site(url, name):
     try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         r = requests.get(url, timeout=20, headers=headers)
         soup = BeautifulSoup(r.text, 'html.parser')
         count = 0
@@ -106,14 +117,14 @@ def scrape_site(url, name):
     except Exception as e:
         print(f"[{name}] स्क्रेप एरर: {e}")
 
-# सभी साइट्स की लिस्ट (Purnea University + Constituent + Affiliated + B.Ed - जितनी एक्टिव मिलीं)
+# पूर्णिया यूनिवर्सिटी + सभी कॉलेजेस (Constituent + Affiliated - जितनी एक्टिव साइट मिलीं)
 sources = [
     # Purnea University मुख्य (सभी कॉलेजेस के नोटिस यहीं से आते हैं)
     ("https://purneau.ac.in/", "Purnea University मुख्य"),
     ("https://purneau.ac.in/pages/news", "Purnea University Notices"),
     ("https://purneau.ac.in/news/examination", "Purnea University Exams & Results"),
 
-    # Constituent Colleges (ऑफिशियल 15 में से एक्टिव)
+    # Constituent Colleges (15 में से एक्टिव साइट्स)
     ("https://purneacollege.ac.in/", "Purnea College, Purnea"),
     ("https://www.purneamahilacollege.ac.in/", "Purnea Mahila Mahavidyalaya, Purnea"),
     ("https://www.mlaryacollegekasba.ac.in/", "M.L. Arya College Kasba, Purnea"),
@@ -138,16 +149,21 @@ sources = [
 ]
 
 print("Bot शुरू हो गया...")
-print("पहली बार: पुराने सारे PDF सिर्फ seen में सेव होंगे, कुछ पोस्ट नहीं होगा")
-print("उसके बाद से: सिर्फ नए PDF (मार्च 2026 के बाद या फ्यूचर में आने वाले) ही आएंगे")
-print("हर 30 मिनट में ऑटो चेक होगा - लाइव अपडेट\n")
+print("पहली बार: पुराने PDF skip हो जाएंगे (seen में सेव)")
+print("उसके बाद सिर्फ नए नोटिस आएंगे")
+print("हर 30 मिनट चेक होगा - लाइव अपडेट\n")
 
 while True:
-    current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print(f"\n=== नया चेक शुरू: {current_time} ===")
+    try:
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        print(f"\n=== चेक शुरू: {current_time} ===")
+        
+        for url, name in sources:
+            scrape_site(url, name)
+        
+        print("=== चेक पूरा === अगला चेक 30 मिनट बाद\n")
+    except Exception as e:
+        print(f"Main loop में एरर: {e}")
+        time.sleep(60)  # एरर पर 1 मिनट वेट
     
-    for url, name in sources:
-        scrape_site(url, name)
-    
-    print("=== चेक पूरा === अगला चेक 30 मिनट बाद\n")
-    time.sleep(1800)  # 30 मिनट
+    time.sleep(1800)
